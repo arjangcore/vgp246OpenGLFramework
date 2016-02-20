@@ -44,7 +44,7 @@ double iSpeed = 25.0f;
 int circleSections = 16;
 const double angleInc = PI / 180.;
 
-float eyeX = 25.0f, eyeY = 5.0f, eyeZ = 70.0f;
+float eyeX = 25.0f, eyeY = 5.0f, eyeZ = 90.0f;
 
 int winWidth = 800;
 int winHeight = 600;
@@ -83,18 +83,29 @@ struct Object3D
 		blue = b;
 	}
 
-
+	////////////////////////////////////////////////////////////////
 	void DrawAxis(float extend)
 	{
 		glPushMatrix();
 		glLineWidth(3.f);
+		glMatrixMode(GL_MODELVIEW);
 		Matrix4 mModel, mView, mModelView;
-		mView.identity();
-		mModel.identity();
+		static float angle = 0.f;
+		angle += 0.3;
+		// set rotation matrix for the frame to be rotaton around z axis by angle degrees
+		Vector3 T(cosf(angle), sinf(angle), 0);
+		Vector3 N(-sinf(angle), cosf(angle), 0);
+		Vector3 B(0.f, 0.f, 1.f);
+		mView.setColumn(0, T);
+		mView.setColumn(1, N);
+		mView.setColumn(2, B);
+		
+		// set translation to move the frame to where the object is.
 		mModel.translate(pos.x, pos.y, pos.z);
-		mModelView = mView * mModel;
-		glTranslatef(pos.x, pos.y, pos.z);
-		//glLoadMatrixf(mModelView.get());
+		mModelView = mModel * mView;
+		// set the final matrix to be used as modelview matrix for opengl pipeline.
+		glMultMatrixf(mModelView.get());
+
 		glBegin(GL_LINES); 
 		glColor3f(1.f, 0.f, 0.f); 
 		glVertex3d(0.f, 0.f, 0.f);    // x axis
