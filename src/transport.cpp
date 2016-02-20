@@ -44,7 +44,7 @@ double iSpeed = 25.0f;
 int circleSections = 16;
 const double angleInc = PI / 180.;
 
-float eyeX = 25.0f, eyeY = 5.0f, eyeZ = 90.0f;
+float eyeX = 25.0f, eyeY = 10.0f, eyeZ = 100.0f;
 
 int winWidth = 800;
 int winHeight = 600;
@@ -59,9 +59,6 @@ double radius = 1.;
 
 static double clocktime = 0.f;
 int framerate = 30;
-
-const int TEXDIM = 1024;
-GLfloat *tex;
 
 bool checkWindowResize();
 
@@ -84,14 +81,17 @@ struct Object3D
 	}
 
 	////////////////////////////////////////////////////////////////
-	void DrawAxis(float extend)
+	void DrawAxis(float extend, bool running=false)
 	{
 		glPushMatrix();
 		glLineWidth(3.f);
 		glMatrixMode(GL_MODELVIEW);
 		Matrix4 mModel, mView, mModelView;
 		static float angle = 0.f;
-		angle += 0.3;
+		if (running)
+			angle += 0.3;
+		else
+			angle = 0.f;
 		// set rotation matrix for the frame to be rotaton around z axis by angle degrees
 		Vector3 T(cosf(angle), sinf(angle), 0);
 		Vector3 N(-sinf(angle), cosf(angle), 0);
@@ -105,7 +105,7 @@ struct Object3D
 		mModelView = mModel * mView;
 		// set the final matrix to be used as modelview matrix for opengl pipeline.
 		glMultMatrixf(mModelView.get());
-
+		glDisable(GL_LIGHTING);
 		glBegin(GL_LINES); 
 		glColor3f(1.f, 0.f, 0.f); 
 		glVertex3d(0.f, 0.f, 0.f);    // x axis
@@ -117,12 +117,16 @@ struct Object3D
 		glVertex3d(0.f, 0.f, 0.f);  //z axis
 		glVertex3d(0.f, 0.f, extend);
 		glEnd();
+		glEnable(GL_LIGHTING);
+
 		glPopMatrix();
 	}
 
 };
 Object3D simBall;
 
+/* material properties for objects in scene */
+static GLfloat wall_mat[] = { 1.f, 1.f, 1.f, 1.f };
 
 /* Create a single component texture map */
 GLfloat *make_texture(int maxs, int maxt)
@@ -133,7 +137,7 @@ GLfloat *make_texture(int maxs, int maxt)
 	texture = (GLfloat *)malloc(maxs * maxt * sizeof(GLfloat));
 	for (t = 0; t < maxt; t++) {
 		for (s = 0; s < maxs; s++) {
-			texture[s + maxs * t] = (((s >> 4) & 0x1) ^ ((t >> 4) & 0x1));
+			texture[s + maxs * t] = 1.f-(((s >> 4) & 0x1) ^ ((t >> 4) & 0x1))*0.3f;
 		}
 	}
 	return texture;
@@ -258,7 +262,7 @@ int timeSpan = 33; // milliseconds
 double timeInc = (double)timeSpan * 0.001; // time increment in seconds
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-void renderScene()
+void renderScene(bool reset)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
@@ -268,11 +272,8 @@ void renderScene()
 	checkWindowResize();
 
 	// set the camera
-	gluLookAt(	eyeX, eyeY, eyeZ,
-				25., 0., 0., //camX + 0.f, camY, camZ - 10.f,
-				0.0f, 1.0f, 0.0f);
+	gluLookAt(eyeX, eyeY, eyeZ, 20., 0., 0., 0.0f, 1.0f, 0.0f);
 	
-
 	//////////////////// draw the ground ///////////////
 	glEnable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
@@ -280,16 +281,42 @@ void renderScene()
 	glNormal3f(0.f, 1.f, 0.f);
 	glTexCoord2i(0, 0);
 	glVertex3f(0.f, 0.f, 0.f);
-	glTexCoord2i(1, 0);
+	glTexCoord2i(2, 0);
 	glVertex3f(WorldWidth, 0.f, 0.f);
-	glTexCoord2i(1, 1);
+	glTexCoord2i(2, 2);
 	glVertex3f(WorldWidth, 0.f, WorldHeight);
-	glTexCoord2i(0, 1);
+	glTexCoord2i(0, 2);
 	glVertex3f(0.f, 0.f, WorldHeight);
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
 
-	simBall.DrawAxis(2.f);
+	simBall.DrawAxis(2.f, reset);
+
+	// draw walls:
+	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, wall_mat);
+	glBegin(GL_QUADS);
+	/* left wall */
+	glNormal3f(1.f, 0.f, 0.f);
+	glVertex3f(0.f, 0.f, WorldHeight);
+	glVertex3f(0.f, 0.f, 0.f);
+	glVertex3f(0.f, 100.f, 0.f);
+	glVertex3f(0.f, 100.f, WorldHeight);
+
+	/* ceiling */
+	glNormal3f(0.f, -1.f, 0.f);
+	glVertex3f(0.f, 100.f, WorldHeight/2.);
+	glVertex3f(0.f, 100.f, 0.f);
+	glVertex3f(WorldWidth, 100.f, 0.f);
+	glVertex3f(WorldWidth, 100.f, WorldHeight/2.);
+
+	/* back wall */
+	glNormal3f(0.f, 0.f, 1.f);
+	glVertex3f(0.f, 0.f, 0.f);
+	glVertex3f(WorldWidth, 0.f, 0.f);
+	glVertex3f(WorldWidth, 100.f, 0.f);
+	glVertex3f(0.f, 100.f, 0.f);
+	
+	glEnd();
 
 	FsSwapBuffers();
 }
@@ -329,20 +356,32 @@ bool checkWindowResize()
 ///////////////////////////////////////////////////////////////////
 int Game(void)
 {
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	/* turn on features */
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+
+	/* place light 0 in the right place */
+	GLfloat lightpos[] = { WorldWidth/2.f, 50.f, WorldHeight/2.f, 1.f };
+	glLightfv(GL_LIGHT0, GL_POSITION, lightpos);
+
+	/* remove back faces to speed things up */
+	glCullFace(GL_BACK);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	/* load pattern for current 2d texture */
-	tex = make_texture(TEXDIM, TEXDIM);
+	const int TEXDIM = 256;
+	GLfloat *tex = make_texture(TEXDIM, TEXDIM);
 	glTexImage2D(GL_TEXTURE_2D, 0, 1, TEXDIM, TEXDIM, 0, GL_RED, GL_FLOAT, tex);
 	free(tex);
 
 //	int lb, mb, rb, mx, my;
 	DWORD passedTime = 0;
 	FsPassedTime(true);
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-
+	
 	//////////// initial setting up the scene ////////////////////////////////////////
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -362,7 +401,7 @@ int Game(void)
 		if (checkWindowResize())
 		{
 			float ratio = width / height;
-			gluPerspective(45.f, ratio, 0.1f, 100.f);
+			gluPerspective(50.f, ratio, 0.1f, 100.f);
 
 		}
 		//FsGetMouseState(lb,mb,rb,mx,my);
@@ -384,7 +423,7 @@ int Game(void)
 		if (!resetFlag)
 			updatePhysics(simBall, timeInc);
 		/////////////////////////////////////////
-		renderScene();
+		renderScene(!resetFlag);
 
 		////// update time lapse /////////////////
 		passedTime = FsPassedTime(); // Making it up to 50fps
