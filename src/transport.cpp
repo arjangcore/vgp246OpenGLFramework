@@ -24,6 +24,8 @@
 #include "vector3d.h"
 #include  "matrices.h"
 
+typedef Vector3d<float> MathVec;
+
 typedef enum
 {
 	eStop = -1,
@@ -35,14 +37,13 @@ typedef enum
 	eAngleDown,
 } changeType;
 
-float PI = 3.1415926;
-float iAngle = PI / 3.; // projectile inclination angle in radian
+float PI = 3.1415926f;
+float iAngle = PI / 3.f; // projectile inclination angle in radian
 float iSpeed = 25.0f;
 int circleSections = 16;
 const float angleInc = PI / 180.f;
 
-float eyeX = 25.0f, eyeY = 10.0f, eyeZ = 100.0f;
-
+MathVec eye(25.f, 10.f, 100.f);
 int winWidth = 800;
 int winHeight = 600;
 const float ratio = (float)winHeight / (float)winWidth;
@@ -55,7 +56,6 @@ static float clocktime = 0.f;
 int framerate = 30;
 
 bool checkWindowResize();
-typedef Vector3d<float> MathVec;
 struct TracePoint
 {
 	MathVec position;
@@ -70,11 +70,13 @@ struct Object3D
 	static const size_t maxPointCount = 10000;
 	TracePoint posTrace[maxPointCount];
 	int traceCount;
-	TracePoint &SetNextTracePoint()
+	TracePoint &SetNextTracePoint(float timeInc)
 	{
 		assert(traceCount < maxPointCount);
 		posTrace[traceCount].position = pos;
-		posTrace[traceCount].color = MathVec(255, 255, 255) - vel;
+		vel = MathVec(pos - posTrace[traceCount - 1].position);
+		vel /= timeInc;
+		posTrace[traceCount].color = vel;
 		return posTrace[traceCount++];
 	}
 	Object3D() { traceCount = 0; }
@@ -146,7 +148,6 @@ struct Object3D
 
 		glPopMatrix();
 	}
-
 };
 Object3D simBall;
 
@@ -168,26 +169,25 @@ GLfloat *make_texture(int maxs, int maxt)
 	return texture;
 }
 
-
 ///////////////////////////////////////////////////////////////
-void initPhysics(double rad, double speed, double angle)
+void initPhysics(float rad, float speed, float angle)
 {
 	clocktime = 0.f;
-	double vx = speed * cos(angle);
-	double vy = speed * sin(angle);
-	double vz = 0.f;
-	double initX = rad;
-	double inity = rad;
-	double initz = WorldDepth/2.f;
+	float vx = speed * cos(angle);
+	float vy = speed * sin(angle);
+	float vz = 0.f;
+	float initX = rad;
+	float inity = rad;
+	float initz = WorldDepth/2.f;
 	simBall.tParam = 0.f;
 	simBall.set(initX, inity, initz, 2, MathVec(vx, vy, vz), 128, 128, 0);
 }
 
 const float gravity = 9.81f;
 /////////////////////////////////////////////////////////////////////
-double Initz = WorldDepth / 2.f;
+float Initz = WorldDepth / 2.f;
 
-void updatePhysics(Object3D &ball, double timeInc)
+void updatePhysics(Object3D &ball, float timeInc)
 {
 	//////////// your physics goes here //////////////////////////
 	// we use a coordinate system in which x goes from left to right of the screen and y goes from bottom to top of the screen
@@ -200,15 +200,15 @@ void updatePhysics(Object3D &ball, double timeInc)
 	//ball.vel.y -= gravity * timeInc; // y speed update
 
 	//update trace
-	TracePoint &tp = ball.SetNextTracePoint();
 //	std::cout << "Pos(" << ball.traceCount << ":" << ball.pos.x << "," << ball.pos.y << "," << ball.pos.z << "==" << tp.position.x << "," << tp.position.y << "," << tp.position.z << std::endl;
 //update using formula and param:
-	simBall.tParam += timeInc;
+	ball.tParam += timeInc;
 	const float rt13 = sqrt(13.f);
 	float t_rt13 = ball.tParam / rt13;
 	ball.pos.x = 2.f * t_rt13;
 	ball.pos.y = 9.f * sin(t_rt13) + 10.f;
 	ball.pos.z = 9.f * cos(t_rt13) +Initz;
+	TracePoint &tp = ball.SetNextTracePoint(timeInc);
 }
 
 void resetPhysics()
@@ -216,8 +216,24 @@ void resetPhysics()
 	initPhysics(1.f, iSpeed, iAngle);
 }
 
+void zoom(bool zoomIn)
+{
+
+	if (zoomIn)
+	{
+		eye += (simBall.pos - eye) * 0.1f;
+	}
+	else
+	{
+		eye -= (simBall.pos - eye) * 0.1f;
+	}
+}
+
 int PollKeys()
 {
+	// first poll mouse:
+//	int lb, mb, rb, mx, my;
+//	FsGetMouseState(lb, mb, rb, mx, my);
 	FsPollDevice();
 	int keyRead = FsInkey();
 	switch (keyRead)
@@ -230,31 +246,33 @@ int PollKeys()
 		break;
 	case FSKEY_UP:
 		//friction += 0.1;
-		eyeY += 0.6f;
+		eye.y += 0.6f;
 		break;
 	case FSKEY_DOWN:
 		//	friction = max(1., friction - 0.1);
-		eyeY -= 0.6f;
+		eye.y -= 0.6f;
 		break;
 	case FSKEY_LEFT:
-		iAngle = max(0., iAngle - angleInc);
-		eyeX -= 0.6f;
+	//	iAngle = max(0., iAngle - angleInc);
+		eye.x -= 0.6f;
 		break;
 	case FSKEY_RIGHT:
-		iAngle = min(90.0f, iAngle + angleInc);
-		eyeX += 0.6f;
+		//iAngle = min(90.0f, iAngle + angleInc);
+		eye.x += 0.6f;
 		break;
 	case FSKEY_PAGEDOWN:
-		iSpeed = max(iSpeed - 5.0f, 0.0f);
+		zoom(false);
+		//iSpeed = max(iSpeed - 5.0f, 0.0f);
 		break;
-	case FSKEY_PAGEUP:
-		iSpeed = min(iSpeed + 5.0f, 100.f);
+	case FSKEY_PAGEUP: // use page up and page down for zoom in and zoom out!
+		zoom(true);
+	//	iSpeed = min(iSpeed + 5.0f, 100.f);
 		break;
 	case FSKEY_I:
-		eyeY = min(eyeY + 1.0f, 100.0f);
+		eye.y = min(eye.y + 1.0f, 100.0f);
 		break;
 	case FSKEY_K:
-		eyeY = max(eyeY - 1.0, 1.);
+		eye.y = max(eye.y - 1.0, 1.);
 		break;
 	}
 	return keyRead;
@@ -272,7 +290,7 @@ int Menu(void)
 	glLoadIdentity();
 	glOrtho(-0.5, (GLdouble)width - 0.5, (GLdouble)height - 0.5, -0.5, -1, 1);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
-
+		
 	while (key != eStart && key != eStop)
 	{
 		key = PollKeys();
@@ -282,7 +300,7 @@ int Menu(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// printing UI message info
-		glColor3f(1., 1., 1.);
+		glColor3f(1.f, 1.f, 1.f);
 		char msg[128];
 		//sprintf_s(msg, "Friction is %f. Use Up/Down keys to change it by 1/10!\n", friction);
 		//glRasterPos2i(32, 32);
@@ -296,7 +314,7 @@ int Menu(void)
 		glRasterPos2i(32, 96);
 		glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
 
-		sprintf_s(msg, "Camera height is %f. Use I/K keys to change it!\n", eyeY);
+		sprintf_s(msg, "Camera height is %f. Use I/K keys to change it!\n", eye.y);
 		glRasterPos2i(32, 128);
 		glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
 
@@ -317,7 +335,7 @@ int Menu(void)
 
 ///////////////////////////////////////////////////////////////
 int timeSpan = 33; // milliseconds
-double timeInc = (double)timeSpan * 0.001; // time increment in seconds
+float timeInc =timeSpan * 0.001f; // time increment in seconds
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 void renderScene(bool reset)
@@ -330,7 +348,7 @@ void renderScene(bool reset)
 	checkWindowResize();
 
 	// set the camera
-	gluLookAt(eyeX, eyeY, eyeZ, 20., 0., 0., 0.0f, 1.0f, 0.0f);
+	gluLookAt(eye.x, eye.y, eye.z, simBall.pos.x, simBall.pos.y, simBall.pos.z, 0.0f, 1.0f, 0.0f);
 
 	//////////////////// draw the ground ///////////////
 	glEnable(GL_TEXTURE_2D);
@@ -419,7 +437,6 @@ int Game(void)
 	glTexImage2D(GL_TEXTURE_2D, 0, 1, TEXDIM, TEXDIM, 0, GL_RED, GL_FLOAT, tex);
 	free(tex);
 
-	//	int lb, mb, rb, mx, my;
 	DWORD passedTime = 0;
 	FsPassedTime(true);
 
@@ -444,14 +461,13 @@ int Game(void)
 			gluPerspective(50.f, ratio, 0.1f, 100.f);
 
 		}
-		//FsGetMouseState(lb,mb,rb,mx,my);
 		key = PollKeys();
 		if (key == eStop)
 			break;
 		if (key == eStart)
 			resetFlag = false;
 
-		timeInc = (double)(passedTime)* 0.001;
+		timeInc = passedTime * 0.001f;
 		clocktime += timeInc;
 		/////////// update physics /////////////////
 		if (simBall.pos.y < -0.01)
