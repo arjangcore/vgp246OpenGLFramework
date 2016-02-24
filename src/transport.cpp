@@ -201,7 +201,7 @@ void updatePhysics(Object3D &ball, double timeInc)
 
 	//update trace
 	TracePoint &tp = ball.SetNextTracePoint();
-	std::cout << "Pos(" << ball.traceCount << ":" << ball.pos.x << "," << ball.pos.y << "," << ball.pos.z << "==" << tp.position.x << "," << tp.position.y << "," << tp.position.z << std::endl;
+//	std::cout << "Pos(" << ball.traceCount << ":" << ball.pos.x << "," << ball.pos.y << "," << ball.pos.z << "==" << tp.position.x << "," << tp.position.y << "," << tp.position.z << std::endl;
 //update using formula and param:
 	simBall.tParam += timeInc;
 	const float rt13 = sqrt(13.f);
