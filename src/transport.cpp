@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <vector>
+#include <assert.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -20,7 +21,6 @@
 #include <vector>
 #include <ctime>
 #include <random>
-//#include "vector2d.h"
 #include "vector3d.h"
 #include  "matrices.h"
 
@@ -65,13 +65,14 @@ struct Object3D
 {
 	MathVec pos, vel, acc;
 	int red, green, blue;
-
+	float tParam;
 	float mass;
-	static const size_t maxPointCount = 400;
+	static const size_t maxPointCount = 10000;
 	TracePoint posTrace[maxPointCount];
 	int traceCount;
 	TracePoint &SetNextTracePoint()
 	{
+		assert(traceCount < maxPointCount);
 		posTrace[traceCount].position = pos;
 		posTrace[traceCount].color = MathVec(255, 255, 255) - vel;
 		return posTrace[traceCount++];
@@ -177,8 +178,42 @@ void initPhysics(double rad, double speed, double angle)
 	double vz = 0.f;
 	double initX = rad;
 	double inity = rad;
-	double initz = WorldDepth / 4.f;
+	double initz = WorldDepth/2.f;
+	simBall.tParam = 0.f;
 	simBall.set(initX, inity, initz, 2, MathVec(vx, vy, vz), 128, 128, 0);
+}
+
+const float gravity = 9.81f;
+/////////////////////////////////////////////////////////////////////
+double Initz = WorldDepth / 2.f;
+
+void updatePhysics(Object3D &ball, double timeInc)
+{
+	//////////// your physics goes here //////////////////////////
+	// we use a coordinate system in which x goes from left to right of the screen and y goes from bottom to top of the screen
+	// we have 1 forces here: 1) gravity which is in negative y direction. 
+	//////////////Explicit Euler Integration:///////////////////////
+	//ball.pos.x += ball.vel.x * timeInc; // x position update, x speed is constant.
+	//ball.pos.y += ball.vel.y * timeInc; // y position update
+	//ball.pos.z += ball.vel.z * timeInc; // y position update
+
+	//ball.vel.y -= gravity * timeInc; // y speed update
+
+	//update trace
+	TracePoint &tp = ball.SetNextTracePoint();
+	std::cout << "Pos(" << ball.traceCount << ":" << ball.pos.x << "," << ball.pos.y << "," << ball.pos.z << "==" << tp.position.x << "," << tp.position.y << "," << tp.position.z << std::endl;
+//update using formula and param:
+	simBall.tParam += timeInc;
+	const float rt13 = sqrt(13.f);
+	float t_rt13 = ball.tParam / rt13;
+	ball.pos.x = 2.f * t_rt13;
+	ball.pos.y = 9.f * sin(t_rt13) + 10.f;
+	ball.pos.z = 9.f * cos(t_rt13) +Initz;
+}
+
+void resetPhysics()
+{
+	initPhysics(1.f, iSpeed, iAngle);
 }
 
 int PollKeys()
@@ -344,30 +379,6 @@ void renderScene(bool reset)
 	glEnd();
 
 	FsSwapBuffers();
-}
-
-const float gravity = 9.81f;
-/////////////////////////////////////////////////////////////////////
-void updatePhysics(Object3D &ball, double timeInc)
-{
-	//////////// your physics goes here //////////////////////////
-	// we use a coordinate system in which x goes from left to right of the screen and y goes from bottom to top of the screen
-	// we have 1 forces here: 1) gravity which is in negative y direction. 
-	//////////////Explicit Euler Integration:///////////////////////
-	ball.pos.x += ball.vel.x * timeInc; // x position update, x speed is constant.
-	ball.pos.y += ball.vel.y * timeInc; // y position update
-	ball.pos.z += ball.vel.z * timeInc; // y position update
-
-	ball.vel.y -= gravity * timeInc;    // y speed update
-
-	//update trace
-	TracePoint &tp = ball.SetNextTracePoint();
-	std::cout << "Pos(" << ball.traceCount << ":" << ball.pos.x << "," << ball.pos.y << "," << ball.pos.z << "==" << tp.position.x << "," << tp.position.y << "," << tp.position.z << std::endl;
-}
-
-void resetPhysics()
-{
-	initPhysics(1.f, iSpeed, iAngle);
 }
 
 bool checkWindowResize()
