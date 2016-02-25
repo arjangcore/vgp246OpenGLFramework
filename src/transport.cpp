@@ -37,6 +37,15 @@ typedef enum
 	eAngleDown,
 } changeType;
 
+typedef enum
+{
+	Frenet = 1,
+	Geodesic,
+	Parallel
+} TrasnportType;
+
+TrasnportType tType = Frenet;  // variable to specify how to do moving frame
+
 float PI = 3.1415926f;
 float iAngle = PI / 3.f; // projectile inclination angle in radian
 float iSpeed = 25.0f;
@@ -70,6 +79,7 @@ struct Object3D
 	static const size_t maxPointCount = 10000;
 	TracePoint posTrace[maxPointCount];
 	int traceCount;
+
 	TracePoint &SetNextTracePoint(float timeInc)
 	{
 		assert(traceCount < maxPointCount);
@@ -108,7 +118,7 @@ struct Object3D
 		glPopMatrix();
 	}
 	////////////////////////////////////////////////////////////////
-	void DrawAxis(float extend, bool running = false)
+	void DrawFrame(float extend, bool running = false)
 	{
 		glPushMatrix();
 		glPointSize(3.f);
@@ -116,7 +126,7 @@ struct Object3D
 		Matrix4 mModel, mView, mModelView;
 		static float angle = 0.f;
 		if (running)
-			angle += 0.3f;
+			angle += 0.1f;
 		else
 			angle = 0.f;
 		// set rotation matrix for the frame to be rotaton around z axis by angle degrees
@@ -274,6 +284,15 @@ int PollKeys()
 	case FSKEY_K:
 		eye.y = max(eye.y - 1.0, 1.);
 		break;
+	case FSKEY_F:
+		tType = Frenet;
+		break;
+	case FSKEY_G:
+		tType = Geodesic;
+		break;
+	case FSKEY_P:
+		tType = Parallel;
+		break;
 	}
 	return keyRead;
 
@@ -306,23 +325,29 @@ int Menu(void)
 		//glRasterPos2i(32, 32);
 		//glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
 
-		sprintf_s(msg, "Slope Angle is %f degrees. Use Left/Right keys to change it!\n", iAngle*180. / PI);
+		//sprintf_s(msg, "Slope Angle is %f degrees. Use Left/Right keys to change it!\n", iAngle*180. / PI);
+		sprintf_s(msg, "Use Left/Right  or Up/Down Keys to move camera left/right or Up/Down!\n");
 		glRasterPos2i(32, 64);
 		glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
 
-		sprintf_s(msg, "Projectile speed is %f m/s. Use PageUp/PageDown keys to change it!\n", iSpeed);
+//		sprintf_s(msg, "Projectile speed is %f m/s. Use PageUp/PageDown keys to change it!\n", iSpeed);
+		sprintf_s(msg, "Use PageUp or PageDown to zoom in or zoom out!\n");
 		glRasterPos2i(32, 96);
 		glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
 
-		sprintf_s(msg, "Camera height is %f. Use I/K keys to change it!\n", eye.y);
+		sprintf_s(msg, "Use F , G , P to choose between Frenet, Geodesic, or Parallel Frames!\n");
 		glRasterPos2i(32, 128);
+		glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
+
+		sprintf_s(msg, "Camera height is %f. Use I/K keys to change it!\n", eye.y);
+		glRasterPos2i(32, 168);
 		glCallLists(strlen(msg), GL_UNSIGNED_BYTE, msg);
 
 		const char *msg1 = "S.....Start Game";
 		const char *msg2 = "ESC...Exit";
-		glRasterPos2i(32, 160);
-		glCallLists(strlen(msg1), GL_UNSIGNED_BYTE, msg1);
 		glRasterPos2i(32, 192);
+		glCallLists(strlen(msg1), GL_UNSIGNED_BYTE, msg1);
+		glRasterPos2i(32, 224);
 		glCallLists(strlen(msg2), GL_UNSIGNED_BYTE, msg2);
 
 		FsSwapBuffers();
@@ -367,7 +392,7 @@ void renderScene(bool reset)
 	glDisable(GL_TEXTURE_2D);
 
 	// draw the frame and its trace:
-	simBall.DrawAxis(2.f, reset);
+	simBall.DrawFrame(2.f, reset);
 	simBall.DrawTrace();
 
 	// draw walls:
