@@ -598,7 +598,7 @@ static void InitializeOpenGL(HWND wnd)
 
     glClearColor(1.0F,1.0F,1.0F,0.0F);
     glClearDepth(1.0F);
-	glDisable(GL_DEPTH_TEST);
+//	glDisable(GL_DEPTH_TEST);
 
 	glViewport(0,0,rect.right,rect.bottom);
 

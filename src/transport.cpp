@@ -24,6 +24,8 @@
 #include "vector3d.h"
 #include  "matrices.h"
 
+#include "MilkshapeModel.h"				// Header File For Milkshape File
+
 typedef Vector3d<float> MathVec;
 
 typedef enum
@@ -36,6 +38,8 @@ typedef enum
 	eAngleUp,
 	eAngleDown,
 } changeType;
+
+Model *pModel = NULL;   // Holds The Model Data
 
 typedef enum
 {
@@ -107,6 +111,7 @@ struct Object3D
 	{
 		glPushMatrix();
 		glLineWidth(2.f);
+//		glDisable(GL_LIGHTING);
 		glBegin(GL_POINTS);
 		for (int i = 0; i < traceCount; i++)
 		{
@@ -115,7 +120,38 @@ struct Object3D
 			glVertex3fv((float*)&tp.position);
 		}
 		glEnd();
+
+//		glEnable(GL_LIGHTING);
 		glPopMatrix();
+	}
+
+	void DrawObject(float extend, bool running = false)
+	{
+		glPushMatrix();
+		glPointSize(3.f);
+		glMatrixMode(GL_MODELVIEW);
+		Matrix4 mModel, mView, mModelView;
+		static float angle = 0.f;
+		if (running)
+			angle += 0.1f;
+		else
+			angle = 0.f;
+		// set rotation matrix for the frame to be rotaton around z axis by angle degrees
+		Vector3 T(cosf(angle), sinf(angle), 0);
+		Vector3 N(-sinf(angle), cosf(angle), 0);
+		Vector3 B(0.f, 0.f, 1.f);
+		mView.setColumn(0, T);
+		mView.setColumn(1, N);
+		mView.setColumn(2, B);
+
+		// set translation to move the frame to where the object is.
+		mModel.scale(0.04f);
+		mModel.translate(pos.x, pos.y, pos.z);
+		mModelView = mModel * mView;
+		glMultMatrixf(mModelView.get());
+		pModel->draw();
+		glPopMatrix();
+
 	}
 	////////////////////////////////////////////////////////////////
 	void DrawFrame(float extend, bool running = false)
@@ -163,6 +199,7 @@ Object3D simBall;
 
 /* material properties for objects in scene */
 static GLfloat wall_mat[] = { 1.f, 1.f, 1.f, 1.f };
+GLuint floorTexture = 0;		// Texture ID for the floor.
 
 /* Create a single component texture map */
 GLfloat *make_texture(int maxs, int maxt)
@@ -228,7 +265,6 @@ void resetPhysics()
 
 void zoom(bool zoomIn)
 {
-
 	if (zoomIn)
 	{
 		eye += (simBall.pos - eye) * 0.1f;
@@ -358,6 +394,24 @@ int Menu(void)
 	return key;
 }
 
+void DrawFloor()
+{
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, floorTexture);
+	glBegin(GL_QUADS);
+	glColor3f(1.f, 1.f, 1.f);
+	glNormal3f(0.f, 1.f, 0.f);
+	glTexCoord2i(0, 0);
+	glVertex3f(0.f, 0.f, 0.f);
+	glTexCoord2i(2, 0);
+	glVertex3f(WorldWidth, 0.f, 0.f);
+	glTexCoord2i(2, 2);
+	glVertex3f(WorldWidth, 0.f, WorldHeight);
+	glTexCoord2i(0, 2);
+	glVertex3f(0.f, 0.f, WorldHeight);
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+}
 ///////////////////////////////////////////////////////////////
 int timeSpan = 33; // milliseconds
 float timeInc =timeSpan * 0.001f; // time increment in seconds
@@ -376,26 +430,15 @@ void renderScene(bool reset)
 	gluLookAt(eye.x, eye.y, eye.z, simBall.pos.x, simBall.pos.y, simBall.pos.z, 0.0f, 1.0f, 0.0f);
 
 	//////////////////// draw the ground ///////////////
-	glEnable(GL_TEXTURE_2D);
-	glBegin(GL_QUADS);
-	glColor3f(1.f, 1.f, 1.f);
-	glNormal3f(0.f, 1.f, 0.f);
-	glTexCoord2i(0, 0);
-	glVertex3f(0.f, 0.f, 0.f);
-	glTexCoord2i(2, 0);
-	glVertex3f(WorldWidth, 0.f, 0.f);
-	glTexCoord2i(2, 2);
-	glVertex3f(WorldWidth, 0.f, WorldHeight);
-	glTexCoord2i(0, 2);
-	glVertex3f(0.f, 0.f, WorldHeight);
-	glEnd();
-	glDisable(GL_TEXTURE_2D);
+	DrawFloor();
 
 	// draw the frame and its trace:
 	simBall.DrawFrame(2.f, reset);
+	simBall.DrawObject(2.f, reset);
 	simBall.DrawTrace();
 
 	// draw walls:
+	glEnable(GL_LIGHTING);
 	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, wall_mat);
 	glBegin(GL_QUADS);
 	/* left wall */
@@ -413,7 +456,7 @@ void renderScene(bool reset)
 	glVertex3f(WorldWidth, 100.f, WorldHeight / 2.);
 
 	/* back wall */
-	glNormal3f(0.f, 0.f, 1.f);
+	glNormal3f(0.f, 0.f, -1.f);
 	glVertex3f(0.f, 0.f, 0.f);
 	glVertex3f(WorldWidth, 0.f, 0.f);
 	glVertex3f(WorldWidth, 100.f, 0.f);
@@ -437,6 +480,20 @@ bool checkWindowResize()
 	return false;
 }
 
+void generateFloorTexture()
+{
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	/* load pattern for current 2d texture */
+	const int TEXDIM = 256;
+	GLfloat *tex = make_texture(TEXDIM, TEXDIM);
+	glGenTextures(1, &floorTexture);					// Create Texture id
+	glBindTexture(GL_TEXTURE_2D, floorTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, 1, TEXDIM, TEXDIM, 0, GL_RED, GL_FLOAT, tex);
+	free(tex);
+
+}
 ///////////////////////////////////////////////////////////////////
 int Game(void)
 {
@@ -445,22 +502,13 @@ int Game(void)
 	glDepthFunc(GL_LEQUAL);
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
-
+	
 	/* place light 0 in the right place */
 	GLfloat lightpos[] = { WorldWidth / 2.f, 50.f, WorldHeight / 2.f, 1.f };
 	glLightfv(GL_LIGHT0, GL_POSITION, lightpos);
 
 	/* remove back faces to speed things up */
 	glCullFace(GL_BACK);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	/* load pattern for current 2d texture */
-	const int TEXDIM = 256;
-	GLfloat *tex = make_texture(TEXDIM, TEXDIM);
-	glTexImage2D(GL_TEXTURE_2D, 0, 1, TEXDIM, TEXDIM, 0, GL_RED, GL_FLOAT, tex);
-	free(tex);
 
 	DWORD passedTime = 0;
 	FsPassedTime(true);
@@ -495,7 +543,7 @@ int Game(void)
 		timeInc = passedTime * 0.001f;
 		clocktime += timeInc;
 		/////////// update physics /////////////////
-		if (simBall.pos.y < -0.01)
+		if (simBall.pos.y < -0.01f)
 		{
 			resetPhysics();
 			resetFlag = true;
@@ -527,13 +575,30 @@ int main(void)
 {
 	int menu;
 	FsOpenWindow(32, 32, winWidth, winHeight, 1); // 800x600 pixels, useDoubleBuffer=1
+	
+	pModel = new MilkshapeModel();									// Memory To Hold The Model
+	if (pModel->loadModelData("data/model.ms3d") == false)		// Loads The Model And Checks For Errors
+	{
+		MessageBox(NULL, "Couldn't load the model data\\model.ms3d", "Error", MB_OK | MB_ICONERROR);
+		return 0;								// If Model Didn't Load Quit
+	}
 
 	int listBase = glGenLists(256);
 	YsGlUseFontBitmap8x12(listBase);
 	glListBase(listBase);
 
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_LIGHTING);
+	//pModel->reloadTextures();										// Loads Model Textures
+
+	glEnable(GL_TEXTURE_2D);										// Enable Texture Mapping ( NEW )
+	glShadeModel(GL_SMOOTH);										// Enable Smooth Shading
+	glClearColor(0.0f, 0.0f, 0.0f, 0.5f);							// Black Background
+	glClearDepth(1.0f);												// Depth Buffer Setup
+	glEnable(GL_DEPTH_TEST);										// Enables Depth Testing
+	glDepthFunc(GL_LEQUAL);											// The Type Of Depth Testing To Do
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);				// Really Nice Perspective Calculations
+	
+	generateFloorTexture();
+
 
 	menu = Menu();
 	if (Menu() != eStop)
