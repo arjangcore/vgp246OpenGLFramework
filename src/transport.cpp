@@ -27,6 +27,7 @@
 #include "MilkshapeModel.h"				// Header File For Milkshape File
 
 typedef Vector3d<float> MathVec;
+typedef Vector3d<USHORT> MathVecS;
 
 typedef enum
 {
@@ -72,11 +73,12 @@ bool checkWindowResize();
 struct TracePoint
 {
 	MathVec position;
-	MathVec color;
+	MathVecS color;
 };
 struct Object3D
 {
-	MathVec pos, vel, acc;
+	MathVec pos, acc;
+	MathVecS vel;
 	int red, green, blue;
 	float tParam;
 	float mass;
@@ -88,8 +90,16 @@ struct Object3D
 	{
 		assert(traceCount < maxPointCount);
 		posTrace[traceCount].position = pos;
-		vel = MathVec(pos - posTrace[traceCount - 1].position);
-		vel /= timeInc;
+		MathVec velF;
+		if(traceCount > 0)
+			velF = MathVec(pos - posTrace[traceCount - 1].position);
+		
+		vel.x = min(max((int)velF.x, FLT_MIN), 255); 
+		vel.y = min(max((int)velF.y, FLT_MIN), 255); 
+		vel.z = min(max((int)velF.y, FLT_MIN), 255);
+		//if(timeInc > FLT_MIN)
+		//vel /= timeInc;
+		std::cout << velF.x<<","<<velF.y<<","<<velF.z<< "=" << vel.x<<","<<vel.y<<","<<vel.z<< std::endl;
 		posTrace[traceCount].color = vel;
 		return posTrace[traceCount++];
 	}
@@ -99,7 +109,7 @@ struct Object3D
 		pos.x = x;
 		pos.y = y;
 		pos.z = z;
-		vel = v;
+		//vel = v;
 		mass = m;
 		green = r;
 		red = g;
@@ -111,7 +121,7 @@ struct Object3D
 	{
 		glPushMatrix();
 		glLineWidth(2.f);
-//		glDisable(GL_LIGHTING);
+		glDisable(GL_LIGHTING);
 		glBegin(GL_POINTS);
 		for (int i = 0; i < traceCount; i++)
 		{
@@ -121,7 +131,7 @@ struct Object3D
 		}
 		glEnd();
 
-//		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHTING);
 		glPopMatrix();
 	}
 
@@ -433,9 +443,9 @@ void renderScene(bool reset)
 	DrawFloor();
 
 	// draw the frame and its trace:
+	simBall.DrawTrace();
 	simBall.DrawFrame(2.f, reset);
 	simBall.DrawObject(2.f, reset);
-	simBall.DrawTrace();
 
 	// draw walls:
 	glEnable(GL_LIGHTING);
