@@ -26,6 +26,10 @@
 
 #include "MilkshapeModel.h"				// Header File For Milkshape File
 
+#if  (_MSC_VER > 1800)
+#pragma comment( lib, "legacy_stdio_definitions.lib" )		// needed for VS 2015 While Linking ( NEW )
+#endif
+
 typedef Vector3d<float> MathVec;
 typedef Vector3d<USHORT> MathVecS;
 
@@ -99,7 +103,7 @@ struct Object3D
 		vel.z = min(max((int)velF.y, FLT_MIN), 255);
 		//if(timeInc > FLT_MIN)
 		//vel /= timeInc;
-		std::cout << velF.x<<","<<velF.y<<","<<velF.z<< "=" << vel.x<<","<<vel.y<<","<<vel.z<< std::endl;
+	//	std::cout << velF.x<<","<<velF.y<<","<<velF.z<< "=" << vel.x<<","<<vel.y<<","<<vel.z<< std::endl;
 		posTrace[traceCount].color = vel;
 		return posTrace[traceCount++];
 	}
