@@ -305,28 +305,22 @@ int PollKeys()
 		keyRead = eStop;
 		break;
 	case FSKEY_UP:
-		//friction += 0.1;
 		eye.y += 0.6f;
 		break;
 	case FSKEY_DOWN:
-		//	friction = max(1., friction - 0.1);
 		eye.y -= 0.6f;
 		break;
 	case FSKEY_LEFT:
-	//	iAngle = max(0., iAngle - angleInc);
 		eye.x -= 0.6f;
 		break;
 	case FSKEY_RIGHT:
-		//iAngle = min(90.0f, iAngle + angleInc);
 		eye.x += 0.6f;
 		break;
 	case FSKEY_PAGEDOWN:
 		zoom(false);
-		//iSpeed = max(iSpeed - 5.0f, 0.0f);
 		break;
 	case FSKEY_PAGEUP: // use page up and page down for zoom in and zoom out!
 		zoom(true);
-	//	iSpeed = min(iSpeed + 5.0f, 100.f);
 		break;
 	case FSKEY_I:
 		eye.y = min(eye.y + 1.0f, 100.0f);

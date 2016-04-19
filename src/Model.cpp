@@ -16,7 +16,7 @@
 #include <gl\gl.h>			// Header File For The OpenGL32 Library
 
 #include "Model.h"
-#include <gl\glaux.h>												// Header File For The Glaux Library
+#include "gl\glaux.h"												// Header File For The Glaux Library
 
 Model::Model()
 {
